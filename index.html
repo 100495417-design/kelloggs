@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>For you 💌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Pacifico&family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* ===== COLORS: change these to change the whole look ===== */
+  :root {
+    --pink: #8b7cf6;
+    --pink-dark: #5b5bd6;
+    --bg1: #ece6ff;
+    --bg2: #d8ebff;
+    --text: #352d5c;
+    --paper: #fffaf0;
+    --pw: min(72vw, 290px, 42vh);   /* polaroid width */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Quicksand', system-ui, sans-serif;
+    color: var(--text);
+    background: linear-gradient(160deg, var(--bg1), var(--bg2));
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ---------- Screens: only the one with class "active" is visible ---------- */
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+    z-index: 1;
+  }
+  .screen.active { display: flex; animation: fadeIn .6s ease; }
+
+  h1 {
+    font-family: 'Pacifico', cursive;
+    font-weight: 400;
+    font-size: 2.1rem;
+    color: var(--pink);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+  .sub { font-size: 1.15rem; margin-bottom: 28px; line-height: 1.5; white-space: pre-line; }
+  .hint { font-size: 1rem; opacity: .8; margin-top: 10px; }
+  .counter { font-size: .9rem; opacity: .65; margin-top: 6px; min-height: 1.2em; }
+
+  button {
+    font-family: inherit;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 32px;
+    cursor: pointer;
+  }
+  .pill {
+    background: var(--pink);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(139, 124, 246, .4);
+  }
+  .pill:active { transform: scale(.96); }
+
+  /* ---------- 1. Runaway question ---------- */
+  .buttons { display: flex; gap: 16px; justify-content: center; align-items: center; }
+  #yesBtn { transition: transform .25s ease; }
+  #noBtn {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .08);
+    transition: left .25s ease, top .25s ease;
+    z-index: 5;
+    white-space: nowrap;
+  }
+
+  /* ---------- 2. Envelope ---------- */
+  .envelope {
+    position: relative;
+    width: 280px;
+    height: 180px;
+    margin: 110px 0 10px;
+    cursor: pointer;
+    perspective: 800px;
+  }
+  .env-back { position: absolute; inset: 0; background: #a99cf0; border-radius: 8px; }
+  .env-letter {
+    position: absolute;
+    left: 18px; right: 18px; top: 12px; height: 150px;
+    background: var(--paper);
+    border-radius: 4px;
+    z-index: 2;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 18px;
+    font-family: 'Caveat', cursive; font-size: 1.6rem; color: var(--pink-dark);
+    transition: transform .8s ease .45s;
+  }
+  .env-front {
+    position: absolute; inset: 0; z-index: 3;
+    background: #b8d4ff;
+    border-radius: 8px;
+    clip-path: polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%);
+  }
+  .env-flap {
+    position: absolute; left: 0; right: 0; top: 0; height: 110px; z-index: 4;
+    background: #9db4ff;
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform-origin: top;
+    transition: transform .6s ease, z-index 0s .3s;
+  }
+  .seal {
+    position: absolute; left: 50%; top: 100px; z-index: 5;
+    transform: translate(-50%, -50%);
+    font-size: 2.2rem;
+    transition: opacity .25s;
+  }
+  .envelope.open .env-flap { transform: rotateX(180deg); z-index: 1; }
+  .envelope.open .seal { opacity: 0; }
+  .envelope.open .env-letter { transform: translateY(-95px); }
+  .envelope:not(.open) { animation: wiggle 2.5s ease-in-out infinite; }
+
+  /* Overlays (the full letter and the jar notes) */
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(53, 45, 92, .28);
+    z-index: 10;
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s;
+    padding: 20px;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+
+  .letter-paper {
+    background: var(--paper);
+    width: 100%; max-width: 380px;
+    max-height: 85vh; max-height: 85dvh;
+    overflow-y: auto;
+    padding: 28px 24px 24px;
+    border-radius: 6px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .2);
+    font-family: 'Caveat', cursive;
+    font-size: 1.45rem;
+    line-height: 1.4;
+    text-align: left;
+    transform: translateY(40px);
+    transition: transform .5s ease;
+    user-select: text; -webkit-user-select: text;
+  }
+  .overlay.show .letter-paper { transform: none; }
+  .letter-paper p { margin-bottom: 14px; white-space: pre-line; }
+  .letter-paper .l-sign { font-weight: 700; color: var(--pink-dark); }
+  .letter-paper button { display: block; margin: 18px auto 4px; font-family: 'Quicksand', sans-serif; }
+
+  /* ---------- 3. Polaroid stack ---------- */
+  .stack {
+    position: relative;
+    width: var(--pw);
+    height: calc(var(--pw) * 1.32);
+    margin: 6px 0 14px;
+  }
+  .polaroid {
+    position: absolute; inset: 0;
+    background: #fff;
+    padding: 12px 12px 0;
+    border-radius: 4px;
+    box-shadow: 0 8px 22px rgba(53, 45, 92, .22);
+    display: flex; flex-direction: column;
+    touch-action: none;
+    cursor: grab;
+    transition: transform .35s ease;
+  }
+  .polaroid img, .polaroid .missing {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #f3e6ea;
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .polaroid .missing { display: flex; align-items: center; justify-content: center; font-size: .9rem; opacity: .6; }
+  .polaroid .cap {
+    font-family: 'Caveat', cursive;
+    font-size: 1.35rem;
+    line-height: 1.15;
+    margin-top: 8px;
+    overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .polaroid .date { font-size: .78rem; opacity: .55; margin-top: 2px; }
+  .stack-end {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: 'Caveat', cursive; font-size: 1.8rem; color: var(--pink-dark);
+    white-space: pre-line;
+  }
+
+  /* ---------- 4. Jar ---------- */
+  .jar-wrap { width: 220px; margin: 8px 0 6px; cursor: pointer; }
+  .jar-wrap svg { width: 100%; display: block; filter: drop-shadow(0 10px 18px rgba(53, 45, 92, .18)); }
+  .shake { animation: shake .5s; }
+  .note-paper {
+    background: var(--paper);
+    max-width: 340px; width: 100%;
+    padding: 30px 24px 24px;
+    border-radius: 6px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .2);
+    text-align: center;
+    transform: scale(.3) rotate(-12deg);
+    transition: transform .45s cubic-bezier(.2, 1.4, .4, 1);
+  }
+  .overlay.show .note-paper { transform: scale(1) rotate(-2deg); }
+  .note-paper .num { font-family: 'Pacifico', cursive; color: var(--pink); font-size: 1.3rem; margin-bottom: 12px; }
+  .note-paper .reason { font-size: 1.25rem; line-height: 1.5; margin-bottom: 22px; }
+  .note-paper button { font-size: 1rem; padding: 10px 24px; }
+
+  /* ---------- 5. Ending ---------- */
+  .ticket {
+    margin: 6px 0 4px;
+    width: 100%; max-width: 320px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px 20px;
+    box-shadow: 0 10px 26px rgba(53, 45, 92, .2);
+    border: 3px dashed var(--pink);
+    transform: rotate(-2deg);
+    cursor: pointer;
+    animation: pop .6s cubic-bezier(.2, 1.4, .4, 1);
+  }
+  .ticket .t-small { font-size: .78rem; letter-spacing: .12em; font-weight: 600; opacity: .7; }
+  .ticket .t-big { font-family: 'Pacifico', cursive; font-size: 1.7rem; color: var(--pink); margin: 6px 0 10px; }
+  .ticket .t-line { border-top: 2px dotted var(--bg2); margin: 0 0 10px; }
+  .ticket .t-details { font-size: .95rem; line-height: 1.5; white-space: pre-line; }
+  #againBtn { margin-top: 20px; background: #fff; color: var(--text); font-size: .95rem; padding: 10px 22px; }
+
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+
+  /* ---------- Hearts ---------- */
+  .heart { position: fixed; bottom: -40px; pointer-events: none; z-index: 0; opacity: .7; animation: floatUp linear forwards; }
+  .burst { position: fixed; pointer-events: none; z-index: 20; font-size: 26px; animation: burst 1.2s ease-out forwards; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes shake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-8deg); }
+    40% { transform: rotate(8deg); }
+    60% { transform: rotate(-5deg); }
+    80% { transform: rotate(5deg); }
+  }
+  @keyframes wiggle { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-3deg); } 90% { transform: rotate(3deg); } 95% { transform: rotate(-2deg); } }
+  @keyframes pop { from { transform: scale(.4) rotate(-10deg); opacity: 0; } to { transform: rotate(-2deg); opacity: 1; } }
+  @keyframes floatUp { to { transform: translateY(-115vh) rotate(25deg); opacity: 0; } }
+  @keyframes burst { to { transform: translate(var(--x), var(--y)) scale(.4); opacity: 0; } }
+</style>
+</head>
+<body>
+
+  <!-- ============ 1. THE QUESTION (runaway No) ============ -->
+  <section class="screen active" id="screenAsk">
+    <h1 id="askTitle"></h1>
+    <p class="sub" id="askText"></p>
+    <div class="buttons">
+      <button class="pill" id="yesBtn">Yes!</button>
+      <button id="noBtn">No</button>
+    </div>
+  </section>
+
+  <!-- ============ 2. THE ENVELOPE ============ -->
+  <section class="screen" id="screenLetter">
+    <h1>A little letter</h1>
+    <div class="envelope" id="envelope">
+      <div class="env-back"></div>
+      <div class="env-letter">For you 💌</div>
+      <div class="env-front"></div>
+      <div class="env-flap"></div>
+      <div class="seal">💜</div>
+    </div>
+    <p class="hint">Tap the envelope to open it</p>
+  </section>
+
+  <div class="overlay" id="letterOverlay">
+    <div class="letter-paper">
+      <p id="letterOpening"></p>
+      <div id="letterBody"></div>
+      <p id="letterClosing"></p>
+      <p class="l-sign" id="letterSignature"></p>
+      <button class="pill" id="letterNext">Next 💌</button>
+    </div>
+  </div>
+
+  <!-- ============ 3. THE POLAROID STACK ============ -->
+  <section class="screen" id="screenPhotos">
+    <h1>Our story</h1>
+    <div class="stack" id="stack">
+      <div class="stack-end" id="stackEnd"></div>
+    </div>
+    <p class="counter" id="photoCounter"></p>
+    <button class="pill" id="photoNext">Next photo ➜</button>
+    <p class="hint" id="photoHint">or swipe the photo to the side</p>
+  </section>
+
+  <!-- ============ 4. THE JAR ============ -->
+  <section class="screen" id="screenJar">
+    <h1>Reasons I love you</h1>
+    <div class="jar-wrap" id="jar">
+      <svg viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg">
+        <rect x="52" y="8" width="96" height="28" rx="8" fill="#e8a87c"/>
+        <rect x="52" y="26" width="96" height="6" fill="#d4895f"/>
+        <rect x="62" y="34" width="76" height="14" fill="#fff" fill-opacity=".5" stroke="#fff" stroke-width="3"/>
+        <path d="M62 48 Q28 52 28 92 L28 208 Q28 240 62 240 L138 240 Q172 240 172 208 L172 92 Q172 52 138 48 Z"
+              fill="#fff" fill-opacity=".45" stroke="#fff" stroke-width="4"/>
+        <rect x="40" y="205" width="32" height="18" rx="3" fill="#9db4ff" transform="rotate(-15 56 214)"/>
+        <rect x="80" y="212" width="32" height="18" rx="3" fill="#b8d4ff" transform="rotate(10 96 221)"/>
+        <rect x="118" y="204" width="32" height="18" rx="3" fill="#7c6cf0" transform="rotate(-8 134 213)"/>
+        <rect x="58" y="182" width="32" height="18" rx="3" fill="#d9d2ff" transform="rotate(12 74 191)"/>
+        <rect x="100" y="184" width="32" height="18" rx="3" fill="#9db4ff" transform="rotate(-20 116 193)"/>
+        <rect x="134" y="178" width="28" height="18" rx="3" fill="#b8d4ff" transform="rotate(8 148 187)"/>
+        <rect x="38" y="166" width="30" height="18" rx="3" fill="#7c6cf0" transform="rotate(-6 53 175)"/>
+        <rect x="45" y="80" width="30" height="18" rx="3" fill="#b8d4ff" transform="rotate(10 60 89)"/>
+        <rect x="90" y="72" width="32" height="18" rx="3" fill="#7c6cf0" transform="rotate(-10 106 81)"/>
+        <rect x="128" y="82" width="30" height="18" rx="3" fill="#9db4ff" transform="rotate(15 143 91)"/>
+        <rect x="66" y="100" width="30" height="16" rx="3" fill="#d9d2ff" transform="rotate(-18 81 108)"/>
+        <rect x="112" y="102" width="30" height="16" rx="3" fill="#b8d4ff" transform="rotate(6 127 110)"/>
+        <text x="68" y="236" font-size="18" fill="#5b8def">♥</text>
+        <text x="138" y="232" font-size="16" fill="#5b8def">♥</text>
+        <text x="94" y="178" font-size="14" fill="#5b8def">♥</text>
+        <rect x="56" y="122" width="88" height="38" rx="6" fill="#fffaf0" stroke="#8b7cf6" stroke-width="2"/>
+        <text x="100" y="147" text-anchor="middle" font-family="Pacifico, cursive" font-size="16" fill="#8b7cf6">open me</text>
+        <path d="M44 100 Q41 150 46 205" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" opacity=".7"/>
+      </svg>
+    </div>
+    <p class="hint" id="jarHint"></p>
+    <p class="counter" id="jarCounter"></p>
+  </section>
+
+  <div class="overlay" id="noteOverlay">
+    <div class="note-paper">
+      <div class="num" id="noteNum"></div>
+      <div class="reason" id="noteText"></div>
+      <button class="pill" id="noteBtn"></button>
+    </div>
+  </div>
+
+  <!-- ============ 5. THE ENDING ============ -->
+  <section class="screen" id="screenEnd">
+    <h1 id="endTitle"></h1>
+    <p class="sub" id="endText"></p>
+    <div class="ticket" id="ticket">
+      <div class="t-small" id="ticketSmall"></div>
+      <div class="t-big" id="ticketBig"></div>
+      <div class="t-line"></div>
+      <div class="t-details" id="ticketDetails"></div>
+    </div>
+    <p class="hint">Tap the ticket for more confetti 🎊</p>
+    <button id="againBtn">Watch it again 🔁</button>
+  </section>
+
+  <canvas id="confetti"></canvas>
+
+<script>
+/* ╔══════════════════════════════════════════════════════════╗
+   ║  ✏️  ALL YOUR CONTENT LIVES HERE. EDIT ONLY THIS PART.     ║
+   ║  Text goes "inside quotes", and each item ends with a ,  ║
+   ║  Use \n inside a text to start a new line.               ║
+   ╚══════════════════════════════════════════════════════════╝ */
+const CONFIG = {
+
+  // ---------- 1. The question ----------
+  askTitle: "Hi my love 💕",
+  askText: "I made something just for you.\nDo you want to see it?",
+  noTexts: ["No", "Are you sure?", "Nope :3", "Try again", "Too slow!", "Nice try :p", "Pleeease"],
+
+  // ---------- 2. The letter ----------
+  letterOpening: "My love,",
+  letterParagraphs: [
+    "Tu sabes que te amo demasiado y te quiero hacer sentir como la persona más especial del mundo.",
+    "I hope this makes you feel just that, porque te mereces todo and I am trying my best to give it to you.",
+    "Disfruta baby girl <3",
+  ],
+  letterClosing: "Tuya,",
+  letterSignature: "Valentina",
+
+  // ---------- 3. The polaroids (in order: first one shows first) ----------
+  // photo:   the file inside the photos folder
+  // date:    small text under the caption
+  // caption: keep it short (about 2 lines max)
+  // focus:   optional. If a face gets cut off, try "top" or "bottom"
+  photos: [
+    { photo: "photos/1.jpg",  date: "July 2024", caption: "The day it all started" },
+    { photo: "photos/2.jpg",  date: "August 2024", caption: "Mi novia" },
+    { photo: "photos/3.jpg",  date: "September 2024", caption: "I'm in love" },
+    { photo: "photos/4.jpg",  date: "December 2024", caption: "Segundo reencuentro... muchos más por venir" },
+    { photo: "photos/5.jpg",  date: "March 2025", caption: "Tu primera vez en España. Mid Aussi." },
+    { photo: "photos/6.jpg",  date: "June 2025", caption: "Our first baby" },
+    { photo: "photos/7.jpg",  date: "August 2025", caption: "One year later, still head over heels for you" },
+    { photo: "photos/8.jpg",  date: "2025-26", caption: "Paraíso" },
+    { photo: "photos/9.jpg",  date: "August 2026", caption: "Two years later, and counting ..." },
+    { photo: "photos/10.jpg", date: "November 2026", caption: "Full circle", focus: "center" },
+  ],
+  photosEndText: "I can't wait for more memories and years by your side.\n Por favor, que no te quepa duda que quiero mi vida contigo.",
+
+  // ---------- 4. The jar ----------
+  reasons: [
+    "You are the realest person I know. Estar cerca de ti is so refreshing for my soul.",
+    "Lo mucho que me consientes. You make me feel so loved.",
+    "Tu mirada. Since always it has felt so familiar and warm. ",
+    "La paz que siento en tus brazos.",
+    "How you always bring the best out of me. And you root for me siempre.",
+    "How incredibly beautiful you are. Adoro tu carita.",
+    "Your body es tan perfecto. Es todo lo que quiero, y es mío.",
+    "How you try your hardest to give me your best version. I see it and I appreciate it.",
+    "Tu devoción a Dios.",
+    "The intimacy I feel with you. Me llenas el alma.",
+  ],
+  jarFinalMessage: "...and a looot more reasons that didn't fit in this jar jeje",
+
+  // ---------- 5. The ending ----------
+  endTitle: "You made it!",
+  endText: "Thank you for completing it, baby girl. I hope you enjoyed it.",
+  ticketSmall: "CONGRATULATIONS! YOU'VE WON ...",
+  ticketBig: "A date with me <3",
+  ticketDetails: "Valid: forever\nRedeemable: whenever you want :)",
+};
+/* ═══════════════ END OF YOUR CONTENT ═══════════════
+   Everything below makes the page work. You don't need to touch it. */
+
+
+const $ = id => document.getElementById(id);
+
+function goTo(screenId) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(screenId).classList.add("active");
+}
+
+/* ---------- Fill the page with the content from CONFIG ---------- */
+$("askTitle").textContent = CONFIG.askTitle;
+$("askText").textContent = CONFIG.askText;
+$("letterOpening").textContent = CONFIG.letterOpening;
+CONFIG.letterParagraphs.forEach(text => {
+  const p = document.createElement("p");
+  p.textContent = text;
+  $("letterBody").appendChild(p);
+});
+$("letterClosing").textContent = CONFIG.letterClosing;
+$("letterSignature").textContent = CONFIG.letterSignature;
+$("stackEnd").textContent = CONFIG.photosEndText;
+$("endTitle").textContent = CONFIG.endTitle;
+$("endText").textContent = CONFIG.endText;
+$("ticketSmall").textContent = CONFIG.ticketSmall;
+$("ticketBig").textContent = CONFIG.ticketBig;
+$("ticketDetails").textContent = CONFIG.ticketDetails;
+
+
+/* ============ 1. Runaway "No" button ============ */
+const yesBtn = $("yesBtn");
+const noBtn = $("noBtn");
+let noTries = 0;
+let noGaveUp = false;   // after enough tries, "No" turns into a second "Yes"
+let lastNoMove = 0;
+
+function moveNoButton() {
+  const pad = 16;
+  const w = noBtn.offsetWidth, h = noBtn.offsetHeight;
+  const yes = yesBtn.getBoundingClientRect();
+  let x, y, attempt = 0;
+  do {   // pick a random spot that doesn't cover the Yes button
+    x = pad + Math.random() * (window.innerWidth - w - pad * 2);
+    y = pad + Math.random() * (window.innerHeight - h - pad * 2);
+    attempt++;
+  } while (attempt < 30 &&
+           x < yes.right + 12 && x + w > yes.left - 12 &&
+           y < yes.bottom + 12 && y + h > yes.top - 12);
+  noBtn.style.position = "fixed";
+  noBtn.style.left = x + "px";
+  noBtn.style.top = y + "px";
+}
+
+function runAway(e) {
+  if (noGaveUp) return;
+  if (e) e.preventDefault();
+  noTries++;
+  lastNoMove = Date.now();
+  if (noTries >= CONFIG.noTexts.length) {
+    noGaveUp = true;
+    noBtn.textContent = "Ok fine, YES 💖";
+    noBtn.style.background = "var(--pink)";
+    noBtn.style.color = "#fff";
+    moveNoButton();
+    return;
+  }
+  noBtn.textContent = CONFIG.noTexts[noTries];
+  moveNoButton();
+  yesBtn.style.transform = `scale(${1 + noTries * 0.12})`;
+}
+
+noBtn.addEventListener("pointerover", e => {      // computer: runs when the mouse gets close
+  if (e.pointerType === "mouse") runAway(e);
+});
+noBtn.addEventListener("pointerdown", runAway);   // phone: runs the moment her finger touches it
+noBtn.addEventListener("click", () => {
+  if (noGaveUp && Date.now() - lastNoMove > 400) saidYes(noBtn);
+});
+yesBtn.addEventListener("click", () => saidYes(yesBtn));
+
+function saidYes(button) {
+  const r = button.getBoundingClientRect();
+  heartBurst(r.left + r.width / 2, r.top + r.height / 2);
+  noBtn.style.display = "none";
+  setTimeout(() => goTo("screenLetter"), 700);
+}
+
+
+/* ============ 2. Envelope + letter ============ */
+const envelope = $("envelope");
+envelope.addEventListener("click", () => {
+  if (envelope.classList.contains("open")) return;
+  envelope.classList.add("open");
+  setTimeout(() => $("letterOverlay").classList.add("show"), 1500);
+});
+$("letterNext").addEventListener("click", () => {
+  $("letterOverlay").classList.remove("show");
+  setTimeout(() => goTo("screenPhotos"), 300);
+});
+
+
+/* ============ 3. Polaroid stack ============ */
+const stack = $("stack");
+const cards = [];
+let currentPhoto = 0;
+
+// Build the cards from last to first, so the first photo ends up on top
+for (let i = CONFIG.photos.length - 1; i >= 0; i--) {
+  const item = CONFIG.photos[i];
+  const card = document.createElement("div");
+  card.className = "polaroid";
+  const rot = (Math.random() * 10 - 5).toFixed(1);
+  card.dataset.rot = rot;
+  card.style.transform = `rotate(${rot}deg)`;
+
+  const img = document.createElement("img");
+  img.src = item.photo;
+  img.alt = item.caption;
+  img.draggable = false;
+  img.style.objectPosition = item.focus || "center";
+  img.onerror = () => {
+    const missing = document.createElement("div");
+    missing.className = "missing";
+    missing.textContent = "📷 photo not found: " + item.photo;
+    img.replaceWith(missing);
+  };
+
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.textContent = item.caption;
+  const date = document.createElement("div");
+  date.className = "date";
+  date.textContent = item.date;
+
+  card.append(img, cap, date);
+  stack.appendChild(card);
+  cards[i] = card;
+  enableSwipe(card);
+}
+
+function enableSwipe(card) {
+  let startX = 0, dx = 0, dragging = false;
+  card.addEventListener("pointerdown", e => {
+    if (card !== cards[currentPhoto]) return;
+    dragging = true; startX = e.clientX; dx = 0;
+    card.setPointerCapture(e.pointerId);
+    card.style.transition = "none";
+    card.style.cursor = "grabbing";
+  });
+  card.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    dx = e.clientX - startX;
+    card.style.transform = `translateX(${dx}px) rotate(${+card.dataset.rot + dx / 12}deg)`;
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    card.style.transition = "";
+    card.style.cursor = "";
+    if (Math.abs(dx) > 80) throwPhoto(dx > 0 ? 1 : -1);
+    else card.style.transform = `rotate(${card.dataset.rot}deg)`;   // snap back
+  };
+  card.addEventListener("pointerup", endDrag);
+  card.addEventListener("pointercancel", endDrag);
+}
+
+function throwPhoto(direction) {
+  if (currentPhoto >= cards.length) return;
+  const card = cards[currentPhoto];
+  card.style.transition = "transform .45s ease, opacity .45s ease";
+  card.style.transform = `translateX(${direction * 120}vw) rotate(${direction * 35}deg)`;
+  card.style.opacity = "0";
+  card.style.pointerEvents = "none";
+  currentPhoto++;
+  updatePhotoScreen();
+}
+
+function updatePhotoScreen() {
+  const total = cards.length;
+  const done = currentPhoto >= total;
+  $("photoCounter").textContent = done ? "" : `${currentPhoto + 1} / ${total}`;
+  $("photoNext").textContent = done ? "Continue 💗" : "Next photo ➜";
+  $("photoHint").style.visibility = done ? "hidden" : "visible";
+}
+
+$("photoNext").addEventListener("click", () => {
+  if (currentPhoto < cards.length) throwPhoto(1);
+  else { goTo("screenJar"); updateJar(); }
+});
+updatePhotoScreen();
+
+
+/* ============ 4. The jar ============ */
+function shuffle(list) {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
+let pool = shuffle([...CONFIG.reasons]);   // random order, no repeats
+let reasonsShown = 0;
+let jarFinished = false;
+let jarBusy = false;
+const jar = $("jar");
+
+jar.addEventListener("click", () => {
+  if (jarBusy) return;
+  jarBusy = true;
+  jar.classList.remove("shake");
+  void jar.offsetWidth;             // restarts the shake animation
+  jar.classList.add("shake");
+  setTimeout(() => {
+    if (pool.length === 0) {
+      jarFinished = true;
+      showNote("💖", CONFIG.jarFinalMessage, "One last surprise 🎁");
+    } else {
+      reasonsShown++;
+      showNote(`Reason #${reasonsShown}`, pool.pop(), pool.length ? "Another one 💗" : "Close 💗");
+    }
+    jarBusy = false;
+  }, 500);
+});
+
+function showNote(title, text, buttonText) {
+  $("noteNum").textContent = title;
+  $("noteText").textContent = text;
+  $("noteBtn").textContent = buttonText;
+  $("noteOverlay").classList.add("show");
+  updateJar();
+}
+
+$("noteBtn").addEventListener("click", () => {
+  $("noteOverlay").classList.remove("show");
+  if (jarFinished) setTimeout(showEnding, 350);
+});
+
+function updateJar() {
+  $("jarCounter").textContent = `${reasonsShown} of ${CONFIG.reasons.length} notes opened`;
+  $("jarHint").textContent = pool.length === 0
+    ? "The jar is empty... tap it one last time 🥹"
+    : "Tap the jar to take out a note 💌";
+}
+
+
+/* ============ 5. Ending + confetti ============ */
+function showEnding() {
+  goTo("screenEnd");
+  confetti(3500);
+}
+$("ticket").addEventListener("click", () => confetti(1500));
+$("againBtn").addEventListener("click", () => location.reload());
+
+const canvas = $("confetti");
+const ctx = canvas.getContext("2d");
+const confettiColors = ["#8b7cf6", "#d9d2ff", "#ffd166", "#7c6cf0", "#ffffff", "#c77dff"];
+let pieces = [];
+let confettiUntil = 0;
+let confettiRunning = false;
+
+function sizeCanvas() {
+  const d = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * d;
+  canvas.height = window.innerHeight * d;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+}
+window.addEventListener("resize", sizeCanvas);
+sizeCanvas();
+
+function addPiece(fromCenter) {
+  pieces.push({
+    x: fromCenter ? window.innerWidth / 2 + (Math.random() - .5) * 80 : Math.random() * window.innerWidth,
+    y: fromCenter ? window.innerHeight * .4 : -20,
+    vx: fromCenter ? (Math.random() - .5) * 16 : (Math.random() - .5) * 2,
+    vy: fromCenter ? -Math.random() * 13 - 4 : Math.random() * 2 + 2,
+    w: 6 + Math.random() * 6,
+    h: 9 + Math.random() * 8,
+    r: Math.random() * Math.PI,
+    vr: (Math.random() - .5) * .3,
+    c: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+  });
+}
+
+function confetti(ms) {
+  confettiUntil = performance.now() + ms;
+  for (let i = 0; i < 140; i++) addPiece(true);   // the big explosion
+  if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(drawConfetti); }
+}
+
+function drawConfetti(now) {
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  if (now < confettiUntil) for (let i = 0; i < 4; i++) addPiece(false);   // the gentle rain
+  for (const p of pieces) {
+    p.vx *= .985;
+    p.vy = Math.min(p.vy + .22, 4.5);
+    p.x += p.vx; p.y += p.vy; p.r += p.vr;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.r);
+    ctx.scale(1, Math.cos(p.r * 2));   // makes it look like it's flipping
+    ctx.fillStyle = p.c;
+    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx.restore();
+  }
+  pieces = pieces.filter(p => p.y < window.innerHeight + 30);
+  if (pieces.length || now < confettiUntil) requestAnimationFrame(drawConfetti);
+  else { confettiRunning = false; ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); }
+}
+
+
+/* ============ Hearts ============ */
+const heartEmojis = ["💜", "💙", "🩵", "🤍", "✨"];
+
+function floatingHeart() {
+  const h = document.createElement("span");
+  h.className = "heart";
+  h.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+  h.style.left = Math.random() * 100 + "vw";
+  h.style.fontSize = 14 + Math.random() * 18 + "px";
+  h.style.animationDuration = 6 + Math.random() * 5 + "s";
+  h.addEventListener("animationend", () => h.remove());
+  document.body.appendChild(h);
+}
+setInterval(floatingHeart, 800);
+
+function heartBurst(x, y) {
+  for (let i = 0; i < 30; i++) {
+    const b = document.createElement("span");
+    b.className = "burst";
+    b.textContent = heartEmojis[i % heartEmojis.length];
+    b.style.left = x - 13 + "px";
+    b.style.top = y - 13 + "px";
+    b.style.setProperty("--x", (Math.random() * 300 - 150) + "px");
+    b.style.setProperty("--y", (Math.random() * 300 - 200) + "px");
+    b.addEventListener("animationend", () => b.remove());
+    document.body.appendChild(b);
+  }
+}
+</script>
+</body>
+</html>
